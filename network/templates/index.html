@@ -1171,10 +1171,15 @@
       try {
         const url = `/routes/history${params.toString() ? "?" + params.toString() : ""}`;
         const res = await fetch(url);
-        const history = await res.json();
-        renderHistory(history);
+        const data = await res.json();
+        if (!res.ok) {
+          showToast(data.error || "Failed to fetch history.", "error");
+          return;
+        }
+        renderHistory(data);
       } catch (err) {
         console.error("History fetch error:", err);
+        showToast("Failed to fetch history.", "error");
       }
     }
 

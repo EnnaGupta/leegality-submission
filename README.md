@@ -212,3 +212,9 @@ curl "http://localhost:8000/routes/history?source=ServerA&limit=10"
 
 ---
 
+## Development Notes
+
+- **Debug mode** is enabled (`DJANGO_DEBUG=True` in `docker-compose.yml`) since this is a local development setup. In production, this would be set to `False` and `ALLOWED_HOSTS` would be restricted.
+- **`runserver`** is used in the Dockerfile for convenience — it serves static files and auto-reloads on code changes. For production, this would be replaced with `gunicorn` (already included in `requirements.txt`).
+- **`collectstatic`** runs with `2>/dev/null || true` during the Docker build to avoid failing on missing static directories. This is acceptable for a dev setup.
+

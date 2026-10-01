@@ -10,6 +10,15 @@ class NodeSerializer(serializers.ModelSerializer):
         fields = ("id", "name")
         read_only_fields = ("id",)
 
+    def validate_name(self, value):
+        name = str(value).strip()
+        if not name:
+            raise serializers.ValidationError("Name is required.")
+        norm = name.replace(" ", "").lower()
+        if Node.objects.filter(normalized_name=norm).exists():
+            raise serializers.ValidationError("Node already exists.")
+        return name
+
 
 def resolve_node(name_str):
     if not name_str or not isinstance(name_str, str):

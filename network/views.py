@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from django.shortcuts import render
 from django.views import View
 from rest_framework import status
@@ -36,22 +38,7 @@ class NodeView(APIView):
         return Response(serializer.data, status=status.HTTP_200_OK)
 
     def post(self, request):
-        raw_name = request.data.get("name")
-        if not raw_name or not str(raw_name).strip():
-            return Response(
-                {"name": ["Name is required"]},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        display_name = str(raw_name).strip()
-        norm = display_name.replace(" ", "").lower()
-        if Node.objects.filter(normalized_name=norm).exists():
-            return Response(
-                {"name": ["Node already exists"]},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        serializer = self.get_serializer(data={"name": display_name})
+        serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         serializer.save()
         return Response(serializer.data, status=status.HTTP_201_CREATED)
@@ -201,18 +188,36 @@ class RouteHistoryView(APIView):
         date_to = request.query_params.get("date_to")
         limit = request.query_params.get("limit")
 
+        parsed_from, parsed_to = None, None
+        if date_from:
+            try:
+                parsed_from = datetime.fromisoformat(date_from)
+            except ValueError:
+                return Response({"error": "Invalid date_from format."}, status=status.HTTP_400_BAD_REQUEST)
+        if date_to:
+            try:
+                parsed_to = datetime.fromisoformat(date_to)
+            except ValueError:
+                return Response({"error": "Invalid date_to format."}, status=status.HTTP_400_BAD_REQUEST)
+        if parsed_from and parsed_to and parsed_from > parsed_to:
+            return Response({"error": "date_from must be before date_to."}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Apply filters
         if source:
             qs = qs.filter(source__normalized_name=source.strip().replace(" ", "").lower())
         if destination:
             qs = qs.filter(destination__normalized_name=destination.strip().replace(" ", "").lower())
-        if date_from:
-            qs = qs.filter(created_at__gte=date_from)
-        if date_to:
-            qs = qs.filter(created_at__lte=date_to)
+        if parsed_from:
+            qs = qs.filter(created_at__gte=parsed_from)
+        if parsed_to:
+            qs = qs.filter(created_at__lte=parsed_to)
+
+        # Apply limit last (Django doesn't allow .filter() after slicing)
         if limit:
             try:
                 qs = qs[: int(limit)]
             except (ValueError, TypeError):
-                pass 
+                pass
+
         serializer = self.get_serializer(qs, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
